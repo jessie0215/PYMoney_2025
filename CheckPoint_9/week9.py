@@ -1,29 +1,55 @@
 import sys
 
-# TODO design proper DS for storing record as (category, description, amount)
 # <Optional> make the categories extendable 
 
 # Global Variable for Formatting
 NUMLEN = 3
 SPACELEN = 8
+CATLEN = 8
 DESLEN = 11
 AMOLEN = 6
-TOTALLEN = NUMLEN + SPACELEN + DESLEN + SPACELEN + AMOLEN
+TOTALLEN = NUMLEN + SPACELEN + CATLEN + SPACELEN + DESLEN + SPACELEN + AMOLEN
 
 # initialize catagories before start
 def initialize_categories():
+    """
+    Initialize the default category hierarchy.
+
+    Returns:
+        list: Nested list representing the category tree.
+    """
     return ['expense', ['food', ['meal', 'snack', 'drink'], 'transportation', 
 ['bus', 'railway']], 'income', ['salary', 'bonus']] 
 
 # check whether a categories is in
 def is_catrgory_valid(category, categories):
-    # TODO check if a specific category is in the catefories list
-    return True
+    """
+    Check whether a specific category exists within the category tree.
+
+    Args:
+        category (str): The category name to check.
+        categories (list): The nested category list.
+
+    Returns:
+        bool: True if category exists, False otherwise.
+    """
+    if type(categories) == list:
+        for cat in categories:
+            if is_catrgory_valid(category,cat):
+                return True
+        return False
+    return category == categories
 
 
 # load records already if it already exists, else prompt the user to  input inital money
 def initialize():
-    # TODO modify to extract the records from 'record.txt' properly
+    """
+    Initialize program by loading previous records if available, 
+    or prompt user to input initial money if file not found or corrupted.
+
+    Returns:
+        tuple: (initial_money (int), records (list of tuples))
+    """
     initial_money = 0
     records = []
     try:
@@ -43,8 +69,8 @@ def initialize():
 
             for line in fh.readlines():
                 try:
-                    des, amt = line.split()
-                    records.append((des, int(amt)))
+                    cat, des, amt = line.split()
+                    records.append((cat, des, int(amt)))
                 except ValueError:
                     sys.stderr.write('[ERR]: Cannot Read Records Properly. Your File May Be Corrupted\n')
                     sys.stderr.write('[ERR]: Deleting Content....\n')
@@ -54,7 +80,6 @@ def initialize():
         return initial_money, records
 
     except FileNotFoundError:
-
         try:
             initial_money = int(input("How much money do you have? "))
         except ValueError:
@@ -68,26 +93,43 @@ def initialize():
 
 
 # add record(s)
-def add(records):
-    # TODO modify this to store proper records
-    # TODO modify prompt message
-    # TODO modify to handle undefined categories exception
+def add(records,categories):
+    """
+    Add new expense or income records.
+
+    Prompts user to input comma-separated entries in the form:
+        category description amount
+    Example:
+        food Fruit -50, drink Coffee -70, salary Part-Time 10000
+
+    Args:
+        records (list): Current list of records.
+        categories (list): Category list for validation.
+
+    Returns:
+        list: Updated records list.
+    """
     try: 
         user_in = input(
-            "Add some expense or income records with description and amount:\n"
-            "Example: Fruit -50, Drink -70, Salary 10000\n"
+            "Add some expense or income records with category, description and amount:\n"
+            "Example: food Fruit -50, drink Coffee -70, salary Part-Time 10000\n"
         )
         
         L = [entry.strip() for entry in user_in.split(',')]
 
         for entry in L: 
             try:
-                des,amount = entry.split()
+                cat,des,amount = entry.split()
+                if not is_catrgory_valid(cat,categories):
+                    print('[ERR]: The specified category is not in the category list. ')
+                    print('[ERR]: Fail to add a record.')
+                    print('You can check the category list by command "view categories"')
+                    break
             except ValueError:
-                sys.stderr.write('[ERR]: Add Fail! Invalid Record Format. Input Should Be Like This: Fruit -50, Jackpot 1000 ...\n')
+                sys.stderr.write('[ERR]: Add Fail! Invalid Record Format. Input Should Be Like This: food Fruit -50, drink Coffee -70 ...\n')
             else:
                 try:
-                    records.append((des,int(amount)))
+                    records.append((cat,des,int(amount)))
                 except ValueError:
                     sys.stderr.write(f'[ERR]: Add Fail! Invalid Value For Money.\n') 
         return records
@@ -98,12 +140,30 @@ def add(records):
         return records
 
 # show the record(s)    
-def view(initial_money, records):
-    # TODO modify this to print records properly
-    # TODO modify global variable to print in good format
+def view(initial_money, records, mode = 0):
+    """
+    Display expense and income records in a formatted table.
+
+    Depending on the display mode, this function either:
+        - mode = 0: shows all records and computes the current total balance.
+        - mode != 0: shows only the specified subset (e.g., filtered records)
+                     and displays the subtotal of the listed items.
+
+    Args:
+        initial_money (int): The starting balance before applying records.
+        records (list[tuple]): A list of (category, description, amount) tuples.
+        mode (int, optional): 
+            Display mode flag.
+            0 = full view with current balance and motivational message.
+            Non-zero = partial view (e.g., for 'find') with subtotal only.
+
+    Returns:
+        None
+    """
     total = initial_money
-    print("Here's your expense and income records:")
-    print(f"No.{' ' * SPACELEN}Description{' ' * SPACELEN}Amount")
+    if mode == 0 : # mode 0 : print all the records
+        print("Here's your expense and income records:") 
+    print(f"No.{' ' * SPACELEN}Category{' ' * SPACELEN}Description{' ' * SPACELEN}Amount")
     print('-' * TOTALLEN)
     if not records:
         print('Empty....')
@@ -113,23 +173,37 @@ def view(initial_money, records):
     
     count = 1
     for entry in records:
-        des = entry[0]
-        amt = entry[1]
-        des_alignment = NUMLEN + SPACELEN + DESLEN - (len(str(count)) + 1 + len(des))
+        cat = entry[0]
+        des = entry[1]
+        amt = entry[2]
+        cat_alignment = NUMLEN + SPACELEN + CATLEN - (len(str(count))+ 1 + len(cat))
+        des_alignment = SPACELEN + DESLEN - len(des)
         amt_alignment = SPACELEN + AMOLEN - len(str(amt))
-        print(f"{count}.{' '*des_alignment}{des}{' ' * amt_alignment}{str(amt)}")
+        print(f"{count}.{' '*cat_alignment}{cat}{' '*des_alignment}{des}{' ' * amt_alignment}{str(amt)}")
         count += 1
         total += amt
 
     print('-' * TOTALLEN)
-    print(f'Now you have {total} dollars.')
-    if total <= 0:
-        print("Go Work for your bread!!!!!")
-    
+    if mode == 0:
+        print(f'Now you have {total} dollars.')
+        if total <= 0:
+            print("Go Work for your bread!!!!!")
+    else :
+        print(f'The total amount above is {total}.')
     return
 
 # delete a specific record
 def delete(initial_money, records):
+    """
+    Delete a specific record by its line number.
+
+    Args:
+        initial_money (int): Starting balance.
+        records (list): List of current records.
+
+    Returns:
+        list: Updated records list.
+    """
     view(initial_money,records)
 
     if not records:
@@ -150,13 +224,22 @@ def delete(initial_money, records):
 
 # save user records to 'records.txt'          
 def save(initial_money, records):
-    # TODO modify to save the records properly
+    """
+    Save all user data to 'records.txt'.
+
+    Args:
+        initial_money (int): Starting balance.
+        records (list): List of records to be saved.
+
+    Returns:
+        None
+    """
     try:
         with open('records.txt','w') as fh:
             fh.write(f"initial_money: {initial_money}\n")
             lines = []
             for entry in records:
-                lines.append( f"{entry[0]} {str(entry[1])}\n")
+                lines.append( f"{entry[0]} {entry[1]} {str(entry[2])}\n")
             
             fh.writelines(lines)
     except OSError as err:
@@ -165,14 +248,104 @@ def save(initial_money, records):
     return
 
 # print all the existing categories
-def view_categories(categories):
-    # TODO: print catecories with proper indentation
-    return
+def view_categories(categories, level = 0):
+    """
+    Print the nested category tree in an indented structure.
+
+    Args:
+        categories (list): Nested category list.
+        level (int): Current recursion depth (used for indentation).
+
+    Returns:
+        None
+    """
+    if categories == None:
+           return
+    if type(categories) == list:
+           for child in categories:
+                  view_categories(child, level+1)
+    else:
+        print(f'{" "*4*(level-1)}- {categories}')
+
+def flatten(L): 
+    """
+    Recursively flatten a nested list into a one-dimensional list.
+
+    Args:
+        L (list or str): A possibly nested list of strings representing categories,
+                         or a single string leaf node.
+
+    Returns:
+        list: A flat list containing all string elements from the nested structure.
+    """
+    if type(L) == list: 
+        result = [] 
+        for child in L: 
+            result.extend(flatten(child)) 
+        return result 
+    else: 
+        return [L] 
+
+def find_subcategories(category, categories):
+    """
+    Find a category and all of its subcategories from a nested category tree.
+
+    This function searches recursively for the given category name.
+    If found, it returns a flat list containing the category itself
+    and all its subcategories (if any).
+    If the category has no subcategories, only itself is returned.
+    If not found, an empty list is returned.
+
+    Args:
+        category (str): The name of the category to search for.
+        categories (list): The nested category list.
+
+    Returns:
+        list: A flat list of the category and its subcategories, or [] if not found.
+    """
+    if type(categories) == list: 
+        for v in categories: 
+            p = find_subcategories(category, v) 
+            if p == True: 
+                index = categories.index(v) 
+                if index + 1 < len(categories) and \
+                        type(categories[index + 1]) == list:  # this category has subcategories
+                    return flatten(categories[index:index + 2]) 
+                else: 
+                    # return only itself if no subcategories 
+                    return [v] 
+            if p != []: 
+                return p 
+    return True if categories == category else [] 
+                               # return [] instead 
 
 # Find records that belongs to specified category
-# Hint: utilize <view> function
-def find(initial_money,records, categories):
-    # TODO find a print all the records that belongs to specific category 
+def find(records, categories):
+    """
+    Find and display all records belonging to a specific category.
+
+    Hint:
+        Utilize the <view> function to display matched results.
+
+    Args:
+        initial_money (int): Starting balance.
+        records (list): List of current records.
+        categories (list): Nested category structure.
+
+    Returns:
+        None
+    """
+    print('Here are categories we have in the system:')
+    view_categories(categories)
+    candidate = input('Which category do you want to find? ')
+    result = find_subcategories(candidate, categories)
+    found_records = list(filter(lambda r:r[0] in result, records))
+    if not found_records:
+        print('No Record Found.')
+        return
+    print(f"Here's your expense and income records under category \"{candidate}\":")
+    view(0, found_records, 1)
+    
     return 
 
 
@@ -183,10 +356,9 @@ initial_money, records = initialize()
 categories = initialize_categories()
 
 while True: 
-    command = input('\nWhat do you want to do (add / view / delete / exit)? ') 
+    command = input('\nWhat do you want to do (add / view / delete / exit / find / view categories )? ') 
     if command == 'add': 
-        records = add(records) 
-        # print(f'records = {records}')
+        records = add(records,categories) 
         continue
     elif command == 'view': 
         view(initial_money, records) 
@@ -197,7 +369,7 @@ while True:
     elif command == 'view categories':
         view_categories(categories)
     elif command == 'find':
-        find(categories)
+        find(records,categories)
     elif command == 'exit': 
         save(initial_money, records) 
         break 
