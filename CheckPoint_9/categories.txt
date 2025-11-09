@@ -10,5 +10,4 @@ expense/transportation/bus
 expense/transportation/railway
 income
 income/bonus
-income/jackpot
 income/salary

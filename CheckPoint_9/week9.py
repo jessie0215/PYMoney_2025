@@ -1,9 +1,10 @@
 import sys
 
-# <Optional> make the categories extendable 
+# File Paths
+CATEGORIESFILE = 'categories.txt'
+RECORDSFILE = 'records.txt'
 
-# File Path for categories.txt
-CATEGORIESPATH = 'categories.txt'
+# Default Categories List
 DEFAULTCATEGORIES =  [
     'expense', [
         'food', [
@@ -18,7 +19,6 @@ DEFAULTCATEGORIES =  [
     ]
 ]
 
-
 # Global Variable for Formatting
 NUMLEN = 3
 SPACELEN = 8
@@ -32,20 +32,19 @@ def insert_path(categories, parts):
     """
     Insert a path like ['expense','food','meal'] into nested list.
     """
-    ptr = categories  # 目前層級指標
+    ptr = categories  # point to current level
     i = 0
     while i < len(parts):
         name = parts[i]
-        # 如果這層沒有這個分類，就加上它與空子清單
+        # if there's no category in this level, add it followed by an empty list
         if name not in ptr:
             ptr.extend([name, []])
-        # 找出這個名稱後面的那個子清單（ptr[j+1]）
+        # fine the sublist behind 'name'
         idx = ptr.index(name)
         ptr = ptr[idx + 1]
         i += 1
     
     return categories
-
 
 # initialize catagories before start
 def initialize_categories():
@@ -57,25 +56,24 @@ def initialize_categories():
     """
     categories = []
     try:
-        with open(CATEGORIESPATH, 'r') as fh:
-            lines = fh.readlines()
+        with open(CATEGORIESFILE, 'r') as fh:
+            lines = fh.readlines() # read all the lines in file
    
         for line in lines:
-            parts = [p.strip().lower() for p in line.split('/') if p.strip()]
-            # print('parts=', parts)
-            if parts[0] not in ('expense', 'income'):
+            parts = [p.strip().lower() for p in line.split('/') if p.strip()] # split the line and remove redundant space 
+            if parts[0] not in ('expense', 'income'): # root must be 'expense' or 'income'
                 raise Exception('Invalid Root')
             
-            categories = insert_path(categories, parts)
+            categories = insert_path(categories, parts) # insert the categories into the nested list 
         
         return categories
 
     except Exception as err:
         sys.stderr.write('[ERR]: '+ str(err) + '\n')
         sys.stderr.write('[ERR]: Can Not Read Categories Properly, Categories Is Set To Default Categories')
-        return DEFAULTCATEGORIES
+        return DEFAULTCATEGORIES # set categories to default
 
-# check whether a categories is in
+# check whether a category is in categories 
 def is_catrgory_valid(category, categories):
     """
     Check whether a specific category exists within the category tree.
@@ -94,8 +92,7 @@ def is_catrgory_valid(category, categories):
         return False
     return category == categories
 
-
-# load records already if it already exists, else prompt the user to  input inital money
+# load records if it already exists, else prompt the user to  input inital money
 def initialize():
     """
     Initialize program by loading previous records if available, 
@@ -107,18 +104,19 @@ def initialize():
     initial_money = 0
     records = []
     try:
-        with open('records.txt', 'r') as fh:
+        with open(RECORDSFILE, 'r') as fh:
             firstline = fh.readline()
             if not firstline:
-                raise FileNotFoundError
+                raise FileNotFoundError # empty file is treated as file not found
 
             L = firstline.split()
+
             try:
                 initial_money = int(L[1])
             except (IndexError, ValueError):
                 sys.stderr.write('[ERR]: Cannot Read Initial Money.\n')
                 sys.stderr.write('[ERR]: Deleting Content....\n')
-                open('records.txt', 'w').close()   # clear the file
+                open(RECORDSFILE, 'w').close()   # clear the file
                 raise FileNotFoundError
 
             for line in fh.readlines():
@@ -128,8 +126,9 @@ def initialize():
                 except ValueError:
                     sys.stderr.write('[ERR]: Cannot Read Records Properly. Your File May Be Corrupted\n')
                     sys.stderr.write('[ERR]: Deleting Content....\n')
-                    open('records.txt', 'w').close()   # clear the file
+                    open(RECORDSFILE, 'w').close()   # clear the file
                     raise FileNotFoundError
+            
         print("Welcome Back!")
         return initial_money, records
 
@@ -144,7 +143,6 @@ def initialize():
     except Exception:
         sys.stderr.write('[ERR]: Cannot Read Records Properly\n')
         return initial_money, records
-
 
 # add record(s)
 def add(records,categories):
@@ -174,19 +172,23 @@ def add(records,categories):
         for entry in L: 
             try:
                 cat,des,amount = entry.split()
+
                 if not is_catrgory_valid(cat,categories):
                     print('[ERR]: The specified category is not in the category list. ')
                     print('[ERR]: Fail to add a record.')
                     print('You can check the category list by command "view categories"')
-                    print('Or add a new categories by command "add categories"')
+                    print('Or add a new category by command "add categories"')
                     break
+
             except ValueError:
                 sys.stderr.write('[ERR]: Add Fail! Invalid Record Format. Input Should Be Like This: food Fruit -50, drink Coffee -70 ...\n')
+            
             else:
                 try:
                     records.append((cat,des,int(amount)))
                 except ValueError:
                     sys.stderr.write(f'[ERR]: Add Fail! Invalid Value For Money.\n') 
+
         return records
     
     except Exception as err:
@@ -216,6 +218,7 @@ def view(initial_money, records, mode = 0):
         None
     """
     total = initial_money
+
     if mode == 0 : # mode 0 : print all the records
         print("Here's your expense and income records:") 
     print(f"No.{' ' * SPACELEN}Category{' ' * SPACELEN}Description{' ' * SPACELEN}Amount")
@@ -226,19 +229,20 @@ def view(initial_money, records, mode = 0):
         print(f'Now you have {total} dollars.')
         return
     
-    count = 1
+    count = 1 # for line number
     for entry in records:
         cat = entry[0]
         des = entry[1]
         amt = entry[2]
-        cat_alignment = NUMLEN + SPACELEN + CATLEN - (len(str(count))+ 1 + len(cat))
-        des_alignment = SPACELEN + DESLEN - len(des)
-        amt_alignment = SPACELEN + AMOLEN - len(str(amt))
+        cat_alignment = NUMLEN + SPACELEN + CATLEN - (len(str(count))+ 1 + len(cat)) # number of space before 'categories'
+        des_alignment = SPACELEN + DESLEN - len(des) # number of space before 'description'
+        amt_alignment = SPACELEN + AMOLEN - len(str(amt)) # number of space before 'amount'
         print(f"{count}.{' '*cat_alignment}{cat}{' '*des_alignment}{des}{' ' * amt_alignment}{str(amt)}")
         count += 1
-        total += amt
+        total += amt # accumulate total amount
 
     print('-' * TOTALLEN)
+
     if mode == 0:
         print(f'Now you have {total} dollars.')
         if total <= 0:
@@ -259,11 +263,13 @@ def delete(initial_money, records):
     Returns:
         list: Updated records list.
     """
-    view(initial_money,records)
+    view(initial_money,records) # print all the existing records for the user's reference
 
     if not records:
         print(f'Empty List ! Cannot Perform Deletion')
         return records
+    
+    # prompt the user to input a line number for deletion
     num = input('Which record do you want to delete? (Enter the line number) ')
     
     try:
@@ -273,6 +279,7 @@ def delete(initial_money, records):
         del records[linenum-1]
         view(initial_money,records)
         return records
+    
     except ValueError:
         sys.stderr.write(f"[ERR]: Delete Fail! Invalid Line Number.\n")
         return records
@@ -290,13 +297,16 @@ def save(initial_money, records):
         None
     """
     try:
-        with open('records.txt','w') as fh:
+        with open(RECORDSFILE,'w') as fh:
             fh.write(f"initial_money: {initial_money}\n")
             lines = []
             for entry in records:
                 lines.append( f"{entry[0]} {entry[1]} {str(entry[2])}\n")
             
             fh.writelines(lines)
+
+        print('Records saved succefully')
+        
     except OSError as err:
         sys.stderr.write(f"[ERR]: Save Fail! {err}")
     
@@ -322,6 +332,7 @@ def view_categories(categories, level = 0):
     else:
         print(f'{" "*4*(level-1)}- {categories}')
 
+# flatten a nestedlist into a list
 def flatten(L): 
     """
     Recursively flatten a nested list into a one-dimensional list.
@@ -341,6 +352,7 @@ def flatten(L):
     else: 
         return [L] 
 
+# Find a category and all of its subcategories from a nested category tree.
 def find_subcategories(category, categories):
     """
     Find a category and all of its subcategories from a nested category tree.
@@ -391,18 +403,25 @@ def find(records, categories):
         None
     """
     print('Here are categories we have in the system:')
-    view_categories(categories)
+    
+    view_categories(categories) # let user know the existing categories
+
     candidate = input('Which category do you want to find? ')
-    result = find_subcategories(candidate, categories)
-    found_records = list(filter(lambda r:r[0] in result, records))
+
+    result = find_subcategories(candidate, categories) # get the subcategories list containing all the category the user want 
+    
+    found_records = list(filter(lambda r:r[0] in result, records)) # filter out the records not belonging to any of the categories in result
+    
     if not found_records:
         print('No Record Found.')
         return
+    
     print(f"Here's your expense and income records under category \"{candidate}\":")
-    view(0, found_records, 1)
+    view(0, found_records, 1) # set view mode to 1 to print different messages
     
     return 
 
+# add new category to categories list
 def add_categories(categories):
     print('Existing Categories: ')
     view_categories(categories)
@@ -427,17 +446,17 @@ def add_categories(categories):
     view_categories(categories)
     return categories
 
+# save all the categories into 'categories.txt'
 def save_categories(categories):
     """
-    把巢狀 categories 存成 categories.txt（每行一條路徑）。
-    會儲存「所有節點」：含中間節點與葉節點。
+    store a nexted list into 'categrories.txt', each line represents a path.
     """
     def dfs(node, prefix, lines):
         if not isinstance(node, list):
-            raise TypeError("root 應該是 list")
+            raise TypeError("root should be list")
 
         if len(node) % 2 != 0:
-            raise ValueError("Invalid category tree: list 長度必須是偶數 (name, children 成對)。")
+            raise ValueError("Invalid category tree: list length must be even ")
 
         for i in range(0, len(node), 2):
             name = node[i]
@@ -447,52 +466,63 @@ def save_categories(categories):
             if not isinstance(sub, list):
                 raise TypeError(f"Invalid children for {name!r}: {sub!r}")
 
-            # 1) 先記錄這個節點本身的路徑
+            # the node itself is a path
             path = '/'.join(prefix + [name])
             lines.append(path)
 
-            # 2) 再往下走子清單
+            # subcategories
             if sub:
                 dfs(sub, prefix + [name], lines)
 
     lines = []
     dfs(categories, [], lines)
 
-    # 可選：去重 & 排序，讓檔案穩定
     lines = sorted(set(lines))
 
-    with open(CATEGORIESPATH, 'w', encoding='utf-8') as fh:
+    with open(CATEGORIESFILE, 'w', encoding='utf-8') as fh:
         fh.write('\n'.join(lines))
+        
     print('Categories saved successfully.')
 
-
-
-
-
 # Main Function
-initial_money, records = initialize() 
-categories = initialize_categories()
+
+# intialization
+initial_money, records = initialize() # get initial_money and records
+categories = initialize_categories() # get categories
 
 while True: 
-    command = input('\nWhat do you want to do (add / view / delete / exit / find / view categories(vc) / add categories(ac) )? ') 
-    if command == 'add': 
-        records = add(records,categories) 
+    # prompt user to input command
+    command = input('\nWhat do you want to do ? \n'
+                'ADD-[A] VIEW-[V] DELETE-[D] '
+                'EXIT-[E] FIND-[F] VIEW CATEGORIES-[VC] ADD CATEGORIES-[AC] \n') 
+    
+    if command == 'add' or command.lower() == 'a' : 
+        records = add(records,categories) # add a new record
         continue
-    elif command == 'view': 
-        view(initial_money, records) 
+
+    elif command == 'view' or command.lower() == 'v': 
+        view(initial_money, records) # print all records
         continue
-    elif command == 'delete': 
-        records = delete(initial_money,records) 
+    
+    elif command == 'delete' or command.lower() == 'd': 
+        records = delete(initial_money,records) # delete specific records
         continue
-    elif command == 'view categories' or command == "vc":
-        view_categories(categories)
-    elif command == 'find':
-        find(records,categories)
-    elif command == 'add categories' or command == 'ac':
-        categories = add_categories(categories)
-    elif command == 'exit': 
-        save(initial_money, records)
-        save_categories(categories)
+    
+    elif command == 'view categories' or command.lower() == "vc":
+        view_categories(categories) # print all the categories 
+    
+    elif command == 'find' or command.lower() == 'f':
+        find(records,categories) # find all the records belong to specific category 
+    
+    elif command == 'add categories' or command.lower() == 'ac':
+        categories = add_categories(categories) # add a user-defined categories
+    
+    elif command == 'exit' or command.lower() == 'e': 
+        print('Processing...')
+        save(initial_money, records) # save all the existing records to 'records.txt'
+        save_categories(categories) # save all the categories to 'categories.txt' 
+        print('\n~~~~ THANKS FOR USING THE PYMONEY SYSTEM ~~~~\n')
         break 
-    else:
+    
+    else: # error handling: undefined command
         sys.stderr.write('[ERR]: Unknown Command. Please Try Again\n')
