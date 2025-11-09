@@ -2,6 +2,23 @@ import sys
 
 # <Optional> make the categories extendable 
 
+# File Path for categories.txt
+CATEGORIESPATH = 'categories.txt'
+DEFAULTCATEGORIES =  [
+    'expense', [
+        'food', [
+            'meal', [], 'snack', [], 'drink', []
+        ],
+        'transportation', [
+            'bus', [], 'railway', []
+        ]
+    ],
+    'income', [
+        'salary', [], 'bonus', []
+    ]
+]
+
+
 # Global Variable for Formatting
 NUMLEN = 3
 SPACELEN = 8
@@ -10,16 +27,53 @@ DESLEN = 11
 AMOLEN = 6
 TOTALLEN = NUMLEN + SPACELEN + CATLEN + SPACELEN + DESLEN + SPACELEN + AMOLEN
 
+# helper function to insert a category into list
+def insert_path(categories, parts):
+    """
+    Insert a path like ['expense','food','meal'] into nested list.
+    """
+    ptr = categories  # 目前層級指標
+    i = 0
+    while i < len(parts):
+        name = parts[i]
+        # 如果這層沒有這個分類，就加上它與空子清單
+        if name not in ptr:
+            ptr.extend([name, []])
+        # 找出這個名稱後面的那個子清單（ptr[j+1]）
+        idx = ptr.index(name)
+        ptr = ptr[idx + 1]
+        i += 1
+    
+    return categories
+
+
 # initialize catagories before start
 def initialize_categories():
     """
-    Initialize the default category hierarchy.
+    Read Categories From 'categories.txt' if it exists. Otherwise, Set to Default Categories.
 
     Returns:
         list: Nested list representing the category tree.
     """
-    return ['expense', ['food', ['meal', 'snack', 'drink'], 'transportation', 
-['bus', 'railway']], 'income', ['salary', 'bonus']] 
+    categories = []
+    try:
+        with open(CATEGORIESPATH, 'r') as fh:
+            lines = fh.readlines()
+   
+        for line in lines:
+            parts = [p.strip().lower() for p in line.split('/') if p.strip()]
+            # print('parts=', parts)
+            if parts[0] not in ('expense', 'income'):
+                raise Exception('Invalid Root')
+            
+            categories = insert_path(categories, parts)
+        
+        return categories
+
+    except Exception as err:
+        sys.stderr.write('[ERR]: '+ str(err) + '\n')
+        sys.stderr.write('[ERR]: Can Not Read Categories Properly, Categories Is Set To Default Categories')
+        return DEFAULTCATEGORIES
 
 # check whether a categories is in
 def is_catrgory_valid(category, categories):
@@ -124,6 +178,7 @@ def add(records,categories):
                     print('[ERR]: The specified category is not in the category list. ')
                     print('[ERR]: Fail to add a record.')
                     print('You can check the category list by command "view categories"')
+                    print('Or add a new categories by command "add categories"')
                     break
             except ValueError:
                 sys.stderr.write('[ERR]: Add Fail! Invalid Record Format. Input Should Be Like This: food Fruit -50, drink Coffee -70 ...\n')
@@ -348,6 +403,69 @@ def find(records, categories):
     
     return 
 
+def add_categories(categories):
+    print('Existing Categories: ')
+    view_categories(categories)
+    path = input( 'Please give the path for your categories\n'
+                  'Example: expense/entertainment/ticket\n'
+                ) 
+    if not path:
+        print('[ERR]: Empty path. Cancelled.')
+        return categories
+
+    parts = [p.strip().lower() for p in path.split('/') if p.strip()]
+    if not parts:
+        print('[ERR]: Invalid input.')
+        return categories
+
+    if parts[0] not in ('expense', 'income'):
+        print('[ERR]: Root must be "expense" or "income".')
+        return categories
+
+    insert_path(categories, parts)
+    print(f'Add Sucessfully ! Here\'s your new categories list:')
+    view_categories(categories)
+    return categories
+
+def save_categories(categories):
+    """
+    把巢狀 categories 存成 categories.txt（每行一條路徑）。
+    會儲存「所有節點」：含中間節點與葉節點。
+    """
+    def dfs(node, prefix, lines):
+        if not isinstance(node, list):
+            raise TypeError("root 應該是 list")
+
+        if len(node) % 2 != 0:
+            raise ValueError("Invalid category tree: list 長度必須是偶數 (name, children 成對)。")
+
+        for i in range(0, len(node), 2):
+            name = node[i]
+            sub  = node[i + 1]
+            if not isinstance(name, str):
+                raise TypeError(f"Invalid node name: {name!r}")
+            if not isinstance(sub, list):
+                raise TypeError(f"Invalid children for {name!r}: {sub!r}")
+
+            # 1) 先記錄這個節點本身的路徑
+            path = '/'.join(prefix + [name])
+            lines.append(path)
+
+            # 2) 再往下走子清單
+            if sub:
+                dfs(sub, prefix + [name], lines)
+
+    lines = []
+    dfs(categories, [], lines)
+
+    # 可選：去重 & 排序，讓檔案穩定
+    lines = sorted(set(lines))
+
+    with open(CATEGORIESPATH, 'w', encoding='utf-8') as fh:
+        fh.write('\n'.join(lines))
+    print('Categories saved successfully.')
+
+
 
 
 
@@ -356,7 +474,7 @@ initial_money, records = initialize()
 categories = initialize_categories()
 
 while True: 
-    command = input('\nWhat do you want to do (add / view / delete / exit / find / view categories )? ') 
+    command = input('\nWhat do you want to do (add / view / delete / exit / find / view categories(vc) / add categories(ac) )? ') 
     if command == 'add': 
         records = add(records,categories) 
         continue
@@ -366,12 +484,15 @@ while True:
     elif command == 'delete': 
         records = delete(initial_money,records) 
         continue
-    elif command == 'view categories':
+    elif command == 'view categories' or command == "vc":
         view_categories(categories)
     elif command == 'find':
         find(records,categories)
+    elif command == 'add categories' or command == 'ac':
+        categories = add_categories(categories)
     elif command == 'exit': 
-        save(initial_money, records) 
+        save(initial_money, records)
+        save_categories(categories)
         break 
     else:
         sys.stderr.write('[ERR]: Unknown Command. Please Try Again\n')
