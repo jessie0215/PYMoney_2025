@@ -3,3 +3,7 @@ meal breakfast -50
 food Fruit -50
 drink Coffee -70
 salary Part-Time 10000
+salary Part-Time 10000
+ticket concert -5800
+ticket movie -500
+ticket museum -50
