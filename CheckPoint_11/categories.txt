@@ -1,0 +1,14 @@
+expense
+expense/clothing
+expense/entertainment
+expense/entertainment/ticket
+expense/food
+expense/food/drink
+expense/food/meal
+expense/food/snack
+expense/transportation
+expense/transportation/bus
+expense/transportation/railway
+income
+income/bonus
+income/salary
