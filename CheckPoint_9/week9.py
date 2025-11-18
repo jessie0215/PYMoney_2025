@@ -1,3 +1,4 @@
+# Version6: Category Functionality Added
 import sys
 
 # File Paths

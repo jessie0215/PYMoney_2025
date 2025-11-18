@@ -1,3 +1,4 @@
+# Version2: using date structure to store records
 money = int(input('How much money do you have? '))
 
 print('Add some expense or income record with description and amount:')

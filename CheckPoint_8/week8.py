@@ -1,3 +1,4 @@
+# Version5: Wrap in functions
 import sys
 
 # Global Variable for Formatting
