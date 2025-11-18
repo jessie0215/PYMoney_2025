@@ -354,63 +354,45 @@ class Categories:
             print(' ' * 4 * level + '- ' + name)
             self.view(sub, level + 1)
     
-    # flatten a nestedlist into a list
-    def _flatten(self,L): 
+    # Find a category and all of its subcategories from a nested category tree 
+    def find_subcategories(self, category):
         """
-        Recursively flatten a nested list into a one-dimensional list.
-
-        Args:
-            L (list or str): A possibly nested list of strings representing categories,
-                            or a single string leaf node.
-
-        Returns:
-            list: A flat list containing all string elements from the nested structure.
-        """
-        if type(L) == list: 
-            result = [] 
-            for child in L: 
-                result.extend(self._flatten(child)) 
-            return result 
-        else: 
-            return [L] 
-
-    # Find a category and all of its subcategories from a nested category tree.
-    def find_subcategories(self, category, node=None):
-        """
-        Recursively find the target category and return a flat list of it and all its subcategories.
-
-        This function searches recursively for the given category name.
-        If found, it returns a flat list containing the category itself
-        and all its subcategories (if any).
-        If the category has no subcategories, only itself is returned.
-        If not found, an empty list is returned.
+        Use a recursive generator to find the target category and
+        yield it and all its subcategories in a flat sequence.
 
         Args:
             category (str): The name of the category to search for.
-            node: categories list for find in recursion
 
         Returns:
             list: A flat list of the category and its subcategories, or [] if not found.
         """
-        if node is None:
-            node = self._categories
 
-        if not isinstance(node, list):
-            return []
-        
-        for i in range(0, len(node), 2):
-            name = node[i]
-            sub  = node[i + 1]
+        def find_subcategories_gen(category, categories, found=False):
+            
+            if isinstance(categories, list):
 
-            if name == category:
-               
-                return self._flatten([name, sub])
+                # walk through the list
+                for index, child in enumerate(categories):
+                    
+                    # try move down with current found
+                    yield from find_subcategories_gen(category, child, found)
 
-            result = self.find_subcategories(category, sub)
-            if result:
-                return result
+                    # if we find the target category and it has subtree 
+                    if (child == category and index + 1 < len(categories)
+                        and isinstance(categories[index + 1], list)):
 
-        return [] 
+                        # recursively find in subtree and set found = True
+                        yield from find_subcategories_gen(category, categories[index + 1], True)
+            else:
+                # base case: a single string representing a specific category
+                # yield when:
+                # (1) it is exactly target category
+                # (2) it is in the subtree of the target category（found=True）
+                if categories == category or found:
+                    yield categories
+
+        # collect the result, convert it into list and return.
+        return list(find_subcategories_gen(category, self._categories))
 
     # check whether a category is in categories 
     def is_category_valid(self,category,node=None):
@@ -521,50 +503,55 @@ class Categories:
         print('Categories saved successfully.')
 
 # Main Function
+def main():
 
-# Intialization
-records =  Records() # instantiate a Records object that maintain initial money and records collection
-categories = Categories() # instantiate a Categories object that maintain categories
+    # Intialization
+    records =  Records() # instantiate a Records object that maintain initial money and records collection
+    categories = Categories() # instantiate a Categories object that maintain categories
 
-while True: 
-    # prompt user to input command
-    command = input('\nWhat do you want to do ? \n'
-                'ADD-[A] VIEW-[V] DELETE-[D] '
-                'EXIT-[E] FIND-[F] VIEW CATEGORIES-[VC] ADD CATEGORIES-[AC] \n') 
-    
-    if command == 'add' or command.lower() == 'a' : 
-        records.add(categories) # add a new record
-        continue
+    while True: 
+        # prompt user to input command
+        command = input('\nWhat do you want to do ? \n'
+                    'ADD-[A] VIEW-[V] DELETE-[D] '
+                    'EXIT-[E] FIND-[F] VIEW CATEGORIES-[VC] ADD CATEGORIES-[AC] \n') 
+        
+        if command == 'add' or command.lower() == 'a' : 
+            records.add(categories) # add a new record
+            continue
 
-    elif command == 'view' or command.lower() == 'v': 
-        records.view() # print all records
-        continue
-    
-    elif command == 'delete' or command.lower() == 'd': 
-        records.delete() # delete specific records
-        continue
-    
-    elif command == 'view categories' or command.lower() == "vc":
-        categories.view() # print all the categories 
-    
-    elif command == 'find' or command.lower() == 'f':
-        print('Here are categories we have in the system:')
-        categories.view() # let user know the existing categories
-        candidate = input('Which category do you want to find? ')
-        target = categories.find_subcategories(candidate) # get the subcategories list containing all the category the user want 
-        records.find(candidate, target) # find all the records belong to specific category 
-        continue
-    
-    elif command == 'add categories' or command.lower() == 'ac':
-        categories.add_categories() # add a user-defined categories
-        continue
+        elif command == 'view' or command.lower() == 'v': 
+            records.view() # print all records
+            continue
+        
+        elif command == 'delete' or command.lower() == 'd': 
+            records.delete() # delete specific records
+            continue
+        
+        elif command == 'view categories' or command.lower() == "vc":
+            categories.view() # print all the categories 
+        
+        elif command == 'find' or command.lower() == 'f':
+            print('Here are categories we have in the system:')
+            categories.view() # let user know the existing categories
+            candidate = input('Which category do you want to find? ')
+            target = categories.find_subcategories(candidate) # get the subcategories list containing all the category the user want 
+            records.find(candidate, target) # find all the records belong to specific category 
+            continue
+        
+        elif command == 'add categories' or command.lower() == 'ac':
+            categories.add_categories() # add a user-defined categories
+            continue
 
-    elif command == 'exit' or command.lower() == 'e': 
-        print('Processing...')
-        records.save() # save all the existing records to 'records.txt'
-        categories.save_categories() # save all the categories to 'categories.txt' 
-        print('\n~~~~ THANKS FOR USING THE PYMONEY SYSTEM ~~~~\n')
-        break 
-    
-    else: # error handling: undefined command
-        sys.stderr.write('[ERR]: Unknown Command. Please Try Again\n')
+        elif command == 'exit' or command.lower() == 'e': 
+            print('Processing...')
+            records.save() # save all the existing records to 'records.txt'
+            categories.save_categories() # save all the categories to 'categories.txt' 
+            print('\n~~~~ THANKS FOR USING THE PYMONEY SYSTEM ~~~~\n')
+            break 
+        
+        else: # error handling: undefined command
+            sys.stderr.write('[ERR]: Unknown Command. Please Try Again\n')
+
+
+if __name__ == "__main__":
+    main()

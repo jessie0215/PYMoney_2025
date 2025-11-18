@@ -1,0 +1,3 @@
+initial_money: 1000
+food Lunch -120
+salary Payday 30000
